@@ -4,15 +4,52 @@
  * a campaign send, otherwise a new thread), links the contact, persists the
  * Message, and records a reply against the campaign when applicable.
  */
-import {
-  Campaign,
-  CampaignRecipient,
-  Contact,
-  Message,
-  Thread,
-  mongoose,
-} from '@mailflow/db';
-import { generateMessageId, type ParsedEmail } from '@mailflow/email';
+import { Campaign, CampaignRecipient, Contact, Message, Thread, mongoose } from '@mailflow/db';
+import { generateMessageId, type BounceReport, type ParsedEmail } from '@mailflow/email';
+
+/**
+ * Apply an asynchronous (DSN) bounce: suppress each failed contact so we never
+ * re-mail a dead address, and flip any still-`sent` campaign recipients for that
+ * contact to `bounced` (recording the event + bumping the campaign's bounced
+ * stat). Idempotent — re-processing the same DSN flips nothing a second time, so
+ * stats don't double-count. Returns how many contacts were suppressed.
+ */
+export async function applyBounce(orgId: string, report: BounceReport): Promise<number> {
+  let suppressed = 0;
+  for (const email of report.recipients) {
+    const contact = await Contact.findOne({ orgId, email }).select('_id status');
+    if (!contact) continue;
+
+    if (contact.status !== 'bounced') {
+      await Contact.updateOne({ _id: contact._id }, { $set: { status: 'bounced' } });
+      suppressed++;
+    }
+
+    // Flip outstanding sends for this contact; the status guard makes the $inc
+    // fire only for recipients actually transitioned (so re-runs are no-ops).
+    const recips = await CampaignRecipient.find({
+      orgId,
+      contactId: contact._id,
+      status: 'sent',
+    }).select('_id campaignId');
+
+    for (const r of recips) {
+      const res = await CampaignRecipient.updateOne(
+        { _id: r._id, status: 'sent' },
+        {
+          $set: { status: 'bounced' },
+          $push: {
+            events: { type: 'bounce', at: new Date(), meta: { dsn: true, status: report.status } },
+          },
+        },
+      );
+      if (res.modifiedCount > 0) {
+        await Campaign.updateOne({ _id: r.campaignId }, { $inc: { 'stats.bounced': 1 } });
+      }
+    }
+  }
+  return suppressed;
+}
 
 export interface IngestParams {
   orgId: string;
@@ -43,9 +80,7 @@ export async function ingestParsedMessage(params: IngestParams): Promise<IngestR
     return { deduped: true, isReply: false, messageDbId: existing._id.toString() };
   }
 
-  const refIds = [parsed.inReplyTo, ...parsed.references].filter(
-    (x): x is string => Boolean(x),
-  );
+  const refIds = [parsed.inReplyTo, ...parsed.references].filter((x): x is string => Boolean(x));
 
   // 2a. Thread via the reference chain → an existing stored Message.
   let thread = null;
@@ -132,10 +167,7 @@ export async function ingestParsedMessage(params: IngestParams): Promise<IngestR
     linkRecipient.events.push({ type: 'reply', at: when });
     await linkRecipient.save();
     if (firstReply) {
-      await Campaign.updateOne(
-        { _id: linkRecipient.campaignId },
-        { $inc: { 'stats.replied': 1 } },
-      );
+      await Campaign.updateOne({ _id: linkRecipient.campaignId }, { $inc: { 'stats.replied': 1 } });
     }
   }
 

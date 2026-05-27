@@ -1,11 +1,11 @@
 import type { Job } from 'bullmq';
-import { getRawMessage, parseRawEmail } from '@mailflow/email';
+import { getRawMessage, parseBounce, parseRawEmail } from '@mailflow/email';
 import { enqueue, type InboundProcessJob } from '@mailflow/queue';
 import { QUEUE_NAMES } from '@mailflow/shared';
 
 import { logger } from '../logger';
 import { gmailClientOptions, loadAccountWithSecrets } from '../lib/provider';
-import { ingestParsedMessage } from '../lib/inbound';
+import { applyBounce, ingestParsedMessage } from '../lib/inbound';
 
 /**
  * Fetch a single inbound message (currently Gmail), parse it, and run it
@@ -24,6 +24,25 @@ export async function processInboundProcess(job: Job<InboundProcessJob>): Promis
   }
   if (!raw) {
     log.warn('no raw message available');
+    return;
+  }
+
+  // Asynchronous bounces (DSNs) arrive here as mailer-daemon reports. Handle
+  // them as suppression signals rather than threading/AI-analyzing them.
+  const bounce = await parseBounce(raw);
+  if (bounce) {
+    if (bounce.permanent) {
+      const suppressed = await applyBounce(orgId, bounce);
+      log.info(
+        { recipients: bounce.recipients, status: bounce.status, suppressed },
+        'processed hard bounce (DSN)',
+      );
+    } else {
+      log.info(
+        { recipients: bounce.recipients, status: bounce.status },
+        'transient bounce — ignored',
+      );
+    }
     return;
   }
 
