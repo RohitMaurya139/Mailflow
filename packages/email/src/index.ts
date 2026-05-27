@@ -22,6 +22,7 @@ export {
 } from './oauth/google';
 export { parseRawEmail, normalizeSubject, type ParsedEmail } from './parser';
 export { parseBounce, type BounceReport } from './bounce';
+export { sendSystemEmail, type SystemEmailInput } from './system';
 export {
   registerGmailWatch,
   stopGmailWatch,

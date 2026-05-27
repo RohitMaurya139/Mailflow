@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { signUpSchema, type SignUpInput } from '@mailflow/shared';
@@ -14,8 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export function SignUpForm() {
-  const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
   const {
     register,
@@ -38,22 +36,36 @@ export function SignUpForm() {
         return;
       }
 
-      // Auto sign-in straight after registration.
-      const signInRes = await signIn('credentials', {
-        email: values.email,
-        password: values.password,
-        redirect: false,
-      });
-      if (signInRes?.error) {
-        toast.success('Account created — please sign in');
-        router.push('/signin');
-        return;
-      }
-      router.push('/dashboard');
-      router.refresh();
+      // Email must be verified before sign-in — show the pending state.
+      setSentTo(values.email);
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function resend() {
+    if (!sentTo) return;
+    await fetch('/api/auth/verify/resend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: sentTo }),
+    });
+    toast.success('Verification email sent');
+  }
+
+  if (sentTo) {
+    return (
+      <div className="space-y-4 text-center">
+        <h2 className="text-lg font-medium">Check your email</h2>
+        <p className="text-muted-foreground text-sm">
+          We sent a verification link to <strong>{sentTo}</strong>. Click it to activate your
+          account, then sign in.
+        </p>
+        <Button variant="outline" className="w-full" onClick={resend}>
+          Resend verification email
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -78,9 +90,7 @@ export function SignUpForm() {
           aria-invalid={Boolean(errors.orgName)}
           {...register('orgName')}
         />
-        {errors.orgName && (
-          <p className="text-destructive text-xs">{errors.orgName.message}</p>
-        )}
+        {errors.orgName && <p className="text-destructive text-xs">{errors.orgName.message}</p>}
       </div>
 
       <div className="space-y-2">
@@ -93,9 +103,7 @@ export function SignUpForm() {
           aria-invalid={Boolean(errors.email)}
           {...register('email')}
         />
-        {errors.email && (
-          <p className="text-destructive text-xs">{errors.email.message}</p>
-        )}
+        {errors.email && <p className="text-destructive text-xs">{errors.email.message}</p>}
       </div>
 
       <div className="space-y-2">
@@ -107,9 +115,7 @@ export function SignUpForm() {
           aria-invalid={Boolean(errors.password)}
           {...register('password')}
         />
-        {errors.password && (
-          <p className="text-destructive text-xs">{errors.password.message}</p>
-        )}
+        {errors.password && <p className="text-destructive text-xs">{errors.password.message}</p>}
       </div>
 
       <Button type="submit" className="w-full" disabled={submitting}>

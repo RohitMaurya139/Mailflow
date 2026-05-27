@@ -20,3 +20,6 @@ export const signInSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 export type SignInInput = z.infer<typeof signInSchema>;
+
+export const verifyResendSchema = z.object({ email });
+export type VerifyResendInput = z.infer<typeof verifyResendSchema>;

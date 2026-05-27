@@ -38,6 +38,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!limited.allowed) return null;
         const user = await verifyCredentials(parsed.data.email, parsed.data.password);
         if (!user) return null;
+        // Block sign-in until the email is verified (closes the unverified-
+        // account takeover vector). The signup flow emails a verification link.
+        if (!user.emailVerified) return null;
         return {
           id: user.id,
           email: user.email,

@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs';
 import { connectToDatabase, Membership, Org, User, mongoose } from '@mailflow/db';
 import type { SignUpInput } from '@mailflow/shared';
 import { slugify, randomToken } from './slug';
+import { generateVerificationToken } from './verification';
 
 export interface ProvisionedUser {
   id: string;
@@ -15,7 +16,11 @@ export interface ProvisionedUser {
   image: string | null;
   orgId: string;
   role: 'superadmin' | 'admin' | 'member' | 'viewer';
+  emailVerified: boolean;
 }
+
+/** A freshly-created credentials user also carries its one-time verify token. */
+export type CreatedUser = ProvisionedUser & { verificationToken?: string };
 
 /** Generate an org slug that is unique across the collection. */
 async function uniqueSlug(base: string): Promise<string> {
@@ -33,7 +38,10 @@ async function uniqueSlug(base: string): Promise<string> {
  * Create an Org + owner User + Membership atomically. The first user of an org
  * is its `admin` (owner). Throws if the email already exists.
  */
-export async function createUserWithOrg(input: SignUpInput): Promise<ProvisionedUser> {
+export async function createUserWithOrg(
+  input: SignUpInput,
+  opts?: { emailVerified?: boolean },
+): Promise<CreatedUser> {
   await connectToDatabase();
 
   const existing = await User.findOne({ email: input.email }).lean();
@@ -44,10 +52,13 @@ export async function createUserWithOrg(input: SignUpInput): Promise<Provisioned
   const orgName = input.orgName?.trim() || `${input.name}'s workspace`;
   const slug = await uniqueSlug(orgName);
   const hashedPassword = await bcrypt.hash(input.password, 12);
+  // Credentials signups must verify their email; OAuth-provisioned users are
+  // pre-verified by the identity provider (see ensureOAuthUser).
+  const verify = opts?.emailVerified ? null : generateVerificationToken();
 
   const session = await mongoose.startSession();
   try {
-    let provisioned: ProvisionedUser | null = null;
+    let provisioned: CreatedUser | null = null;
 
     await session.withTransaction(async () => {
       const [org] = await Org.create(
@@ -64,6 +75,9 @@ export async function createUserWithOrg(input: SignUpInput): Promise<Provisioned
             name: input.name,
             role: 'admin',
             hashedPassword,
+            emailVerified: opts?.emailVerified ? new Date() : undefined,
+            verificationTokenHash: verify?.hash,
+            verificationTokenExpires: verify?.expires,
           },
         ],
         { session },
@@ -74,10 +88,7 @@ export async function createUserWithOrg(input: SignUpInput): Promise<Provisioned
       org.ownerId = user._id;
       await org.save({ session });
 
-      await Membership.create(
-        [{ userId: user._id, orgId: org._id, role: 'admin' }],
-        { session },
-      );
+      await Membership.create([{ userId: user._id, orgId: org._id, role: 'admin' }], { session });
 
       provisioned = {
         id: user._id.toString(),
@@ -86,6 +97,8 @@ export async function createUserWithOrg(input: SignUpInput): Promise<Provisioned
         image: user.image ?? null,
         orgId: org._id.toString(),
         role: 'admin',
+        emailVerified: Boolean(opts?.emailVerified),
+        verificationToken: verify?.raw,
       };
     });
 
@@ -109,11 +122,20 @@ export async function ensureOAuthUser(profile: {
 
   const existing = await User.findOne({ email: profile.email });
   if (existing) {
-    // Keep profile image fresh.
+    // Google has proven ownership of this address, so mark it verified (this is
+    // what makes linking a Google login to an existing account safe).
+    let changed = false;
+    if (!existing.emailVerified) {
+      existing.emailVerified = new Date();
+      existing.verificationTokenHash = undefined;
+      existing.verificationTokenExpires = undefined;
+      changed = true;
+    }
     if (profile.image && existing.image !== profile.image) {
       existing.image = profile.image;
-      await existing.save();
+      changed = true;
     }
+    if (changed) await existing.save();
     return {
       id: existing._id.toString(),
       email: existing.email,
@@ -121,16 +143,20 @@ export async function ensureOAuthUser(profile: {
       image: existing.image ?? null,
       orgId: existing.orgId.toString(),
       role: existing.role,
+      emailVerified: true,
     };
   }
 
   const name = profile.name || profile.email.split('@')[0] || 'User';
-  const provisioned = await createUserWithOrg({
-    name,
-    email: profile.email,
-    // OAuth users never use this password; store a random hash placeholder.
-    password: randomToken(24),
-  });
+  const provisioned = await createUserWithOrg(
+    {
+      name,
+      email: profile.email,
+      // OAuth users never use this password; store a random hash placeholder.
+      password: randomToken(24),
+    },
+    { emailVerified: true },
+  );
 
   if (profile.image) {
     await User.updateOne({ _id: provisioned.id }, { image: profile.image });
@@ -158,5 +184,6 @@ export async function verifyCredentials(
     image: user.image ?? null,
     orgId: user.orgId.toString(),
     role: user.role,
+    emailVerified: Boolean(user.emailVerified),
   };
 }

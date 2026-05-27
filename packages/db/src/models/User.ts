@@ -11,6 +11,9 @@ export interface IUser {
   /** bcrypt hash; absent for OAuth-only accounts. */
   hashedPassword?: string;
   emailVerified?: Date;
+  /** SHA-256 of the pending email-verification token (single-use). */
+  verificationTokenHash?: string;
+  verificationTokenExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,6 +27,8 @@ const userSchema = new Schema<IUser>(
     role: { type: String, enum: ROLES, default: 'admin' },
     hashedPassword: { type: String, select: false },
     emailVerified: { type: Date },
+    verificationTokenHash: { type: String, select: false },
+    verificationTokenExpires: { type: Date },
   },
   { timestamps: true },
 );

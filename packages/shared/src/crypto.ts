@@ -16,3 +16,8 @@ export function safeStringEqual(a: string, b: string): boolean {
   const hb = createHash('sha256').update(b, 'utf8').digest();
   return timingSafeEqual(ha, hb);
 }
+
+/** Hex SHA-256 digest of a string — e.g. to store a single-use token by hash. */
+export function sha256Hex(value: string): string {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
+}

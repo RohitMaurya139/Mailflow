@@ -16,9 +16,7 @@ const NodeEnv = z.enum(['development', 'test', 'production']);
 const envSchema = z.object({
   // Runtime
   NODE_ENV: NodeEnv.default('development'),
-  LOG_LEVEL: z
-    .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
-    .default('info'),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   APP_URL: z.string().url().default('http://localhost:3000'),
 
   // Core infrastructure (required to do anything useful)
@@ -32,9 +30,12 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 
   // Encryption (32-byte key, base64 → 44 chars incl. padding)
-  ENCRYPTION_KEY: z
-    .string()
-    .min(32, 'ENCRYPTION_KEY must be a base64-encoded 32-byte key'),
+  ENCRYPTION_KEY: z.string().min(32, 'ENCRYPTION_KEY must be a base64-encoded 32-byte key'),
+
+  // Transactional email (optional) — used to send account-verification mail.
+  // When unset, verification links are logged instead of emailed.
+  SYSTEM_SMTP_URL: z.string().optional(),
+  SYSTEM_EMAIL_FROM: z.string().optional(),
 
   // Integrations (optional until their phase is reached)
   OPENROUTER_API_KEY: z.string().optional(),
