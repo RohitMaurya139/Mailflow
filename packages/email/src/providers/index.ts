@@ -4,4 +4,4 @@ export {
   type GmailCredentials,
   type GmailProviderOptions,
 } from './gmail';
-export { SmtpProvider, classifySmtpError, type SmtpCredentials } from './smtp';
+export { SmtpProvider, classifySmtpError, type SmtpCredentials, type SmtpDkimConfig } from './smtp';

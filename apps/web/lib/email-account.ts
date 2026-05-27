@@ -36,7 +36,7 @@ export function loadAccountWithSecrets(
   id: string,
 ): Promise<HydratedDocument<IEmailAccount> | null> {
   return EmailAccount.findOne({ _id: id, orgId })
-    .select('+auth.accessToken +auth.refreshToken +auth.pass +auth.apiKey')
+    .select('+auth.accessToken +auth.refreshToken +auth.pass +auth.apiKey +auth.dkimPrivateKey')
     .exec();
 }
 
@@ -107,6 +107,8 @@ export interface SanitizedAccount {
   fromName: string;
   limits: IEmailAccount['limits'];
   health: IEmailAccount['health'];
+  /** Whether outbound mail from this account is DKIM-signed. */
+  dkim: boolean;
   createdAt: string;
 }
 
@@ -119,6 +121,9 @@ export function sanitizeAccount(account: IEmailAccount): SanitizedAccount {
     fromName: account.fromName,
     limits: account.limits,
     health: account.health,
+    // `dkimSelector` is a non-secret field (unlike the key), so it's safe to
+    // surface its presence as a signing indicator.
+    dkim: Boolean(account.auth?.dkimSelector),
     createdAt: account.createdAt.toISOString(),
   };
 }

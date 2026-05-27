@@ -8,7 +8,7 @@
  */
 import type { EmailProvider as ProviderKind } from '@mailflow/shared';
 import { GmailProvider } from './providers/gmail';
-import { SmtpProvider } from './providers/smtp';
+import { SmtpProvider, type SmtpDkimConfig } from './providers/smtp';
 import type { GoogleOAuthConfig } from './oauth/google';
 import type { EmailProvider } from './types';
 
@@ -24,10 +24,15 @@ export interface StoredAuth {
   secure?: boolean;
   apiKey?: string;
   domain?: string;
+  /** Encrypted PEM DKIM private key + the DNS selector it's published under. */
+  dkimPrivateKey?: string;
+  dkimSelector?: string;
 }
 
 export interface StoredAccount {
   provider: ProviderKind;
+  /** Used to derive the DKIM signing domain (the part after `@`). */
+  fromEmail?: string;
   auth: StoredAuth;
 }
 
@@ -44,10 +49,26 @@ export interface ResolveOptions {
   }) => void | Promise<void>;
 }
 
-export function resolveProvider(
-  account: StoredAccount,
-  opts: ResolveOptions,
-): EmailProvider {
+/**
+ * Build the nodemailer DKIM config for an SMTP account, or `undefined` when the
+ * account isn't fully configured for signing (needs key + selector + a domain
+ * derivable from `fromEmail`). Exported for testing.
+ */
+export function buildSmtpDkim(
+  auth: StoredAuth,
+  fromEmail: string | undefined,
+  decrypt: (ciphertext: string) => string,
+): SmtpDkimConfig | undefined {
+  const domainName = fromEmail?.split('@')[1];
+  if (!auth.dkimPrivateKey || !auth.dkimSelector || !domainName) return undefined;
+  return {
+    domainName,
+    keySelector: auth.dkimSelector,
+    privateKey: decrypt(auth.dkimPrivateKey),
+  };
+}
+
+export function resolveProvider(account: StoredAccount, opts: ResolveOptions): EmailProvider {
   switch (account.provider) {
     case 'gmail': {
       const { accessToken, refreshToken, expiresAt } = account.auth;
@@ -74,6 +95,7 @@ export function resolveProvider(
         user,
         pass: opts.decrypt(pass),
         secure: Boolean(secure),
+        dkim: buildSmtpDkim(account.auth, account.fromEmail, opts.decrypt),
       });
     }
     default:

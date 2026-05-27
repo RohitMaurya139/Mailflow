@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { apiRequest } from '@/lib/client-api';
 
 function Field({
@@ -95,7 +96,12 @@ export function SmtpDialog() {
           </div>
 
           <Field id="fromEmail" label="From email" error={errors.fromEmail?.message}>
-            <Input id="fromEmail" type="email" placeholder="ada@company.com" {...register('fromEmail')} />
+            <Input
+              id="fromEmail"
+              type="email"
+              placeholder="ada@company.com"
+              {...register('fromEmail')}
+            />
           </Field>
 
           <div className="grid grid-cols-3 gap-3">
@@ -122,6 +128,35 @@ export function SmtpDialog() {
             <input type="checkbox" className="size-4" {...register('secure')} />
             Use TLS (port 465)
           </label>
+
+          <details className="rounded-md border border-border/60 px-3 py-2">
+            <summary className="cursor-pointer text-sm font-medium">
+              DKIM signing (optional)
+            </summary>
+            <div className="mt-3 space-y-3">
+              <p className="text-muted-foreground text-xs">
+                Sign outbound mail with DKIM to improve deliverability. Publish the matching public
+                key in DNS at <code>&lt;selector&gt;._domainkey.{'{your domain}'}</code> before
+                sending.
+              </p>
+              <Field id="dkimSelector" label="Selector" error={errors.dkimSelector?.message}>
+                <Input id="dkimSelector" placeholder="mailflow" {...register('dkimSelector')} />
+              </Field>
+              <Field
+                id="dkimPrivateKey"
+                label="Private key (PEM)"
+                error={errors.dkimPrivateKey?.message}
+              >
+                <Textarea
+                  id="dkimPrivateKey"
+                  rows={4}
+                  spellCheck={false}
+                  placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"
+                  {...register('dkimPrivateKey')}
+                />
+              </Field>
+            </div>
+          </details>
 
           <DialogFooter>
             <Button type="submit" disabled={isSubmitting}>

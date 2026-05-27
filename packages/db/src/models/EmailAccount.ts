@@ -21,6 +21,9 @@ export interface IEmailAccountAuth {
   // sendgrid / mailgun
   apiKey?: string;
   domain?: string;
+  // dkim (smtp): PEM private key (encrypted) + the DNS selector it's published under
+  dkimPrivateKey?: string;
+  dkimSelector?: string;
 }
 
 export interface IEmailAccountLimits {
@@ -74,6 +77,8 @@ const emailAccountSchema = new Schema<IEmailAccount>(
       secure: { type: Boolean },
       apiKey: { type: String, select: false },
       domain: { type: String },
+      dkimPrivateKey: { type: String, select: false },
+      dkimSelector: { type: String },
     },
     limits: {
       dailyCap: { type: Number, required: true, default: 500 },
@@ -103,7 +108,4 @@ emailAccountSchema.index({ orgId: 1, fromEmail: 1 }, { unique: true });
 // Used by the account-health scheduler to find watches needing refresh.
 emailAccountSchema.index({ watchExpiration: 1 });
 
-export const EmailAccount = defineModel<IEmailAccount>(
-  'EmailAccount',
-  emailAccountSchema,
-);
+export const EmailAccount = defineModel<IEmailAccount>('EmailAccount', emailAccountSchema);

@@ -21,9 +21,7 @@ function gmailOAuthConfig(): GoogleOAuthConfig {
 }
 
 /** Build Gmail read-client options (watch/history/fetch) from an account. */
-export function gmailClientOptions(
-  account: HydratedDocument<IEmailAccount>,
-): GmailClientOptions {
+export function gmailClientOptions(account: HydratedDocument<IEmailAccount>): GmailClientOptions {
   const { accessToken, refreshToken, expiresAt } = account.auth;
   if (!accessToken) throw new Error('Gmail account is missing an access token');
   return {
@@ -49,7 +47,7 @@ export function loadAccountWithSecrets(
   id: string,
 ): Promise<HydratedDocument<IEmailAccount> | null> {
   return EmailAccount.findById(id)
-    .select('+auth.accessToken +auth.refreshToken +auth.pass +auth.apiKey')
+    .select('+auth.accessToken +auth.refreshToken +auth.pass +auth.apiKey +auth.dkimPrivateKey')
     .exec();
 }
 

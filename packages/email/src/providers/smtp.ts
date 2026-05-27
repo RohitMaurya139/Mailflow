@@ -9,12 +9,23 @@ import {
   type SendResult,
 } from '../types';
 
+export interface SmtpDkimConfig {
+  /** Signing domain (`d=`), e.g. `company.com`. */
+  domainName: string;
+  /** DNS selector (`s=`), e.g. `mailflow` → `mailflow._domainkey.company.com`. */
+  keySelector: string;
+  /** PEM-encoded RSA private key (already decrypted). */
+  privateKey: string;
+}
+
 export interface SmtpCredentials {
   host: string;
   port: number;
   user: string;
   pass: string;
   secure: boolean;
+  /** When present, outbound mail is DKIM-signed by nodemailer. */
+  dkim?: SmtpDkimConfig;
 }
 
 export class SmtpProvider implements EmailProvider {
@@ -28,6 +39,9 @@ export class SmtpProvider implements EmailProvider {
       // `secure` true for 465; STARTTLS upgrade for 587 etc.
       secure: creds.secure,
       auth: { user: creds.user, pass: creds.pass },
+      // DKIM-sign every message when a key is configured. Authenticated SMTP
+      // from cold domains is throttled/rejected without a valid signature.
+      ...(creds.dkim && { dkim: creds.dkim }),
     });
   }
 

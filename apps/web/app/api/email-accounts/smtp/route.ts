@@ -1,3 +1,5 @@
+import { createPrivateKey } from 'node:crypto';
+
 import { EmailAccount, encrypt } from '@mailflow/db';
 import { SmtpProvider } from '@mailflow/email';
 import { DEFAULT_CAPS, smtpConnectSchema } from '@mailflow/shared';
@@ -28,6 +30,16 @@ export const POST = withOrg(
       return badRequest('Could not connect with those SMTP settings');
     }
 
+    // Validate the DKIM key actually parses before we store it, so signing
+    // can't silently fail at send time.
+    if (input.dkimPrivateKey) {
+      try {
+        createPrivateKey(input.dkimPrivateKey);
+      } catch {
+        return badRequest('The DKIM private key could not be parsed (expected a PEM private key)');
+      }
+    }
+
     const existing = await EmailAccount.findOne({
       orgId: ctx.orgId,
       fromEmail: input.fromEmail,
@@ -46,6 +58,12 @@ export const POST = withOrg(
         user: input.user,
         pass: encrypt(input.pass),
         secure: input.secure,
+        ...(input.dkimPrivateKey && input.dkimSelector
+          ? {
+              dkimPrivateKey: encrypt(input.dkimPrivateKey),
+              dkimSelector: input.dkimSelector,
+            }
+          : {}),
       },
       limits: { ...DEFAULT_CAPS.smtp, warmupDay: 0 },
       health: { status: 'connected', sentToday: 0, bouncesToday: 0 },

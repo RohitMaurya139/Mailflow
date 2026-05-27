@@ -61,7 +61,7 @@ export async function processSendEmail(job: Job<SendEmailJob>): Promise<void> {
   const accounts = await EmailAccount.find({
     _id: { $in: campaign.senderPoolIds },
     orgId,
-  }).select('+auth.accessToken +auth.refreshToken +auth.pass +auth.apiKey');
+  }).select('+auth.accessToken +auth.refreshToken +auth.pass +auth.apiKey +auth.dkimPrivateKey');
 
   const account = await pickSender(accounts, campaign.rotation, campaignId);
   if (!account) {
