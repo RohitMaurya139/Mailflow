@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Download, Loader2, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CONTACT_STATUSES, type Paginated } from '@mailflow/shared';
@@ -27,6 +28,7 @@ import { apiRequest } from '@/lib/client-api';
 import { cn } from '@/lib/utils';
 import { AddContactDialog } from './add-contact-dialog';
 import { ImportDialog } from './import-dialog';
+import { NewListDialog } from './new-list-dialog';
 
 const ALL = '__all__';
 
@@ -53,6 +55,7 @@ const STATUS_VARIANT: Record<string, 'sage' | 'rose' | 'default' | 'amber'> = {
 };
 
 export function ContactsView({ lists }: { lists: ListOption[] }) {
+  const router = useRouter();
   const [items, setItems] = useState<ContactRow[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -84,6 +87,13 @@ export function ContactsView({ lists }: { lists: ListOption[] }) {
     const t = setTimeout(load, 300);
     return () => clearTimeout(t);
   }, [load]);
+
+  // Reload contacts AND re-fetch the server-rendered lists (so the rail counts
+  // and the campaign wizard pick up new/updated lists).
+  const refresh = useCallback(() => {
+    load();
+    router.refresh();
+  }, [load, router]);
   useEffect(() => {
     setPage(1);
   }, [search, listFilter, statusFilter]);
@@ -111,7 +121,10 @@ export function ContactsView({ lists }: { lists: ListOption[] }) {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr]">
       {/* Lists rail */}
       <aside className="hidden flex-col gap-0.5 lg:flex">
-        <div className="label-mono px-2 py-1 text-[10px]">Lists</div>
+        <div className="label-mono flex items-center justify-between px-2 py-1 text-[10px]">
+          <span>Lists</span>
+          <NewListDialog onCreated={refresh} />
+        </div>
         <ListItem
           label="All contacts"
           count={totalContacts || total}
@@ -160,8 +173,8 @@ export function ContactsView({ lists }: { lists: ListOption[] }) {
                 <Download /> Export
               </a>
             </Button>
-            <ImportDialog lists={lists} onImported={load} />
-            <AddContactDialog onCreated={load} />
+            <ImportDialog lists={lists} onImported={refresh} />
+            <AddContactDialog lists={lists} onCreated={refresh} />
           </div>
         </div>
 
@@ -209,14 +222,20 @@ export function ContactsView({ lists }: { lists: ListOption[] }) {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={STATUS_VARIANT[c.status] ?? 'default'} className="badge-dot capitalize">
+                        <Badge
+                          variant={STATUS_VARIANT[c.status] ?? 'default'}
+                          className="badge-dot capitalize"
+                        >
                           {c.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {c.tags.slice(0, 2).map((t) => (
-                            <span key={t} className="mono bg-surface-2 text-muted-foreground rounded px-1.5 py-0.5 text-[10.5px]">
+                            <span
+                              key={t}
+                              className="mono bg-surface-2 text-muted-foreground rounded px-1.5 py-0.5 text-[10.5px]"
+                            >
                               {t}
                             </span>
                           ))}
@@ -252,13 +271,23 @@ export function ContactsView({ lists }: { lists: ListOption[] }) {
         <div className="text-muted-foreground mt-3.5 flex items-center justify-between text-[13px]">
           <span className="mono">{total} contacts</span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage((p) => p - 1)}
+            >
               ← Previous
             </Button>
             <span className="mono text-[12px]">
               {page} / {totalPages}
             </span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages || loading} onClick={() => setPage((p) => p + 1)}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages || loading}
+              onClick={() => setPage((p) => p + 1)}
+            >
               Next →
             </Button>
           </div>
@@ -289,7 +318,9 @@ function ListItem({
           : 'text-ink-2 hover:bg-foreground/[0.03]',
       )}
     >
-      {active && <span className="bg-clay absolute top-2 bottom-2 -left-[1px] w-0.5 rounded-r-sm" />}
+      {active && (
+        <span className="bg-clay absolute top-2 bottom-2 -left-[1px] w-0.5 rounded-r-sm" />
+      )}
       <span className="truncate">{label}</span>
       <span className="bg-surface-2 text-muted-foreground mono ml-auto rounded-full px-1.5 text-[10px]">
         {count}

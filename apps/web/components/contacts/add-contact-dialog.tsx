@@ -18,10 +18,31 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { apiRequest } from '@/lib/client-api';
 
-export function AddContactDialog({ onCreated }: { onCreated: () => void }) {
+const NONE = '__none__';
+
+interface ListOption {
+  id: string;
+  name: string;
+}
+
+export function AddContactDialog({
+  lists = [],
+  onCreated,
+}: {
+  lists?: ListOption[];
+  onCreated: () => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [listId, setListId] = useState(NONE);
   const {
     register,
     handleSubmit,
@@ -31,9 +52,13 @@ export function AddContactDialog({ onCreated }: { onCreated: () => void }) {
 
   async function onSubmit(values: ContactCreateInput) {
     try {
-      await apiRequest('/api/contacts', { method: 'POST', body: JSON.stringify(values) });
+      await apiRequest('/api/contacts', {
+        method: 'POST',
+        body: JSON.stringify({ ...values, listIds: listId !== NONE ? [listId] : [] }),
+      });
       toast.success('Contact added');
       reset();
+      setListId(NONE);
       setOpen(false);
       onCreated();
     } catch (error) {
@@ -68,6 +93,24 @@ export function AddContactDialog({ onCreated }: { onCreated: () => void }) {
               <Input id="lastName" {...register('lastName')} />
             </div>
           </div>
+          {lists.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Add to list (optional)</Label>
+              <Select value={listId} onValueChange={setListId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="No list" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>No list</SelectItem>
+                  {lists.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <DialogFooter>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="size-4 animate-spin" />}
