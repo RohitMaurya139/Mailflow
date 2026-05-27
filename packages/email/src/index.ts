@@ -23,6 +23,7 @@ export {
 export { parseRawEmail, normalizeSubject, type ParsedEmail } from './parser';
 export { parseBounce, type BounceReport } from './bounce';
 export { sendSystemEmail, type SystemEmailInput } from './system';
+export { generateDkimKeyPair, dkimDnsRecord, type DkimKeyPair, type DkimDnsRecord } from './dkim';
 export {
   registerGmailWatch,
   stopGmailWatch,

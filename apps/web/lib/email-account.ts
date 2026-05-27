@@ -6,9 +6,11 @@
 import 'server-only';
 import { EmailAccount, decrypt, encrypt, type IEmailAccount } from '@mailflow/db';
 import {
+  dkimDnsRecord,
   generateMessageId,
   registerGmailWatch,
   resolveProvider,
+  type DkimDnsRecord,
   type EmailProvider,
   type GoogleOAuthConfig,
   type SendResult,
@@ -109,10 +111,21 @@ export interface SanitizedAccount {
   health: IEmailAccount['health'];
   /** Whether outbound mail from this account is DKIM-signed. */
   dkim: boolean;
+  /** The DNS TXT record to publish, when a managed key has been generated. */
+  dkimRecord: DkimDnsRecord | null;
   createdAt: string;
 }
 
 export function sanitizeAccount(account: IEmailAccount): SanitizedAccount {
+  const { dkimSelector, dkimPublicKey } = account.auth ?? {};
+  const domain = account.fromEmail.split('@')[1];
+  // `dkimSelector`/`dkimPublicKey` are non-secret (unlike the private key), so
+  // it's safe to surface the publishable DNS record.
+  const dkimRecord =
+    dkimSelector && dkimPublicKey && domain
+      ? dkimDnsRecord(dkimSelector, domain, dkimPublicKey)
+      : null;
+
   return {
     id: account._id.toString(),
     provider: account.provider,
@@ -121,9 +134,8 @@ export function sanitizeAccount(account: IEmailAccount): SanitizedAccount {
     fromName: account.fromName,
     limits: account.limits,
     health: account.health,
-    // `dkimSelector` is a non-secret field (unlike the key), so it's safe to
-    // surface its presence as a signing indicator.
-    dkim: Boolean(account.auth?.dkimSelector),
+    dkim: Boolean(dkimSelector),
+    dkimRecord,
     createdAt: account.createdAt.toISOString(),
   };
 }

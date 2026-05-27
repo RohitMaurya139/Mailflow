@@ -21,9 +21,11 @@ export interface IEmailAccountAuth {
   // sendgrid / mailgun
   apiKey?: string;
   domain?: string;
-  // dkim (smtp): PEM private key (encrypted) + the DNS selector it's published under
+  // dkim (smtp): PEM private key (encrypted) + the DNS selector it's published
+  // under + the base64 public key (non-secret; for re-displaying the DNS record)
   dkimPrivateKey?: string;
   dkimSelector?: string;
+  dkimPublicKey?: string;
 }
 
 export interface IEmailAccountLimits {
@@ -79,6 +81,7 @@ const emailAccountSchema = new Schema<IEmailAccount>(
       domain: { type: String },
       dkimPrivateKey: { type: String, select: false },
       dkimSelector: { type: String },
+      dkimPublicKey: { type: String },
     },
     limits: {
       dailyCap: { type: Number, required: true, default: 500 },

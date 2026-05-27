@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, MoreVertical, Send, Trash2 } from 'lucide-react';
+import { Copy, Loader2, Mail, MoreVertical, Send, ShieldCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { AccountHealthStatus } from '@mailflow/shared';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -27,6 +28,7 @@ export interface AccountCardData {
   fromName: string;
   limits: { dailyCap: number; hourlyCap: number };
   health: { status: AccountHealthStatus; sentToday: number; lastError?: string };
+  dkimRecord?: { host: string; value: string } | null;
 }
 
 const HEALTH_BADGE: Record<
@@ -43,6 +45,24 @@ export function AccountCard({ account }: { account: AccountCardData }) {
   const router = useRouter();
   const [testOpen, setTestOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [dkim, setDkim] = useState(account.dkimRecord ?? null);
+  const [dkimBusy, setDkimBusy] = useState(false);
+
+  async function setupDkim() {
+    setDkimBusy(true);
+    try {
+      const res = await apiRequest<{ record: { host: string; value: string } }>(
+        `/api/email-accounts/${account.id}/dkim`,
+        { method: 'POST' },
+      );
+      setDkim(res.record);
+      toast.success('DKIM key generated — publish the DNS record below');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to set up DKIM');
+    } finally {
+      setDkimBusy(false);
+    }
+  }
 
   const badge = HEALTH_BADGE[account.health.status];
   const used = account.health.sentToday;
@@ -98,9 +118,7 @@ export function AccountCard({ account }: { account: AccountCardData }) {
       <CardContent className="space-y-3">
         <div className="flex items-center justify-between">
           <Badge variant={badge.variant}>{badge.label}</Badge>
-          <span className="text-muted-foreground text-xs uppercase">
-            {account.provider}
-          </span>
+          <span className="text-muted-foreground text-xs uppercase">{account.provider}</span>
         </div>
 
         <div className="space-y-1.5">
@@ -121,6 +139,36 @@ export function AccountCard({ account }: { account: AccountCardData }) {
         {account.health.status === 'error' && account.health.lastError && (
           <p className="text-destructive text-xs">{account.health.lastError}</p>
         )}
+
+        {account.provider === 'smtp' && (
+          <div className="border-t pt-3">
+            {dkim ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-medium">
+                  <ShieldCheck className="text-primary size-3.5" /> DKIM — publish this TXT record
+                </div>
+                <DkimField label="Host" value={dkim.host} />
+                <DkimField label="Value" value={dkim.value} mono />
+                <button
+                  onClick={setupDkim}
+                  disabled={dkimBusy}
+                  className="text-muted-foreground hover:text-foreground text-xs underline"
+                >
+                  Rotate key
+                </button>
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" onClick={setupDkim} disabled={dkimBusy}>
+                {dkimBusy ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <ShieldCheck className="size-4" />
+                )}
+                Set up DKIM
+              </Button>
+            )}
+          </div>
+        )}
       </CardContent>
 
       <TestSendDialog
@@ -130,5 +178,24 @@ export function AccountCard({ account }: { account: AccountCardData }) {
         onOpenChange={setTestOpen}
       />
     </Card>
+  );
+}
+
+function DkimField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="bg-muted/50 flex items-start gap-2 rounded-md border p-2">
+      <span className="text-muted-foreground w-10 shrink-0 pt-0.5 text-xs">{label}</span>
+      <code className={cn('flex-1 break-all text-xs', mono && 'font-mono')}>{value}</code>
+      <button
+        className="text-muted-foreground hover:text-foreground shrink-0"
+        onClick={() => {
+          void navigator.clipboard.writeText(value);
+          toast.success('Copied');
+        }}
+        aria-label={`Copy ${label}`}
+      >
+        <Copy className="size-3" />
+      </button>
+    </div>
   );
 }

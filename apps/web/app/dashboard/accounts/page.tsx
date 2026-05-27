@@ -36,11 +36,14 @@ export default async function AccountsPage() {
         sentToday: a.health.sentToday,
         lastError: a.health.lastError,
       },
+      dkimRecord: a.dkimRecord ? { host: a.dkimRecord.host, value: a.dkimRecord.value } : null,
     };
   });
 
   // Unique sending domains for DNS deliverability guidance.
-  const domains = [...new Set(accounts.map((a) => a.fromEmail.split('@')[1]).filter(Boolean) as string[])];
+  const domains = [
+    ...new Set(accounts.map((a) => a.fromEmail.split('@')[1]).filter(Boolean) as string[]),
+  ];
   const appHost = (() => {
     try {
       return new URL(env.APP_URL).host;
