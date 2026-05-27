@@ -130,47 +130,60 @@ export async function processSendEmail(job: Job<SendEmailJob>): Promise<void> {
       headers: unsubscribeHeaders(unsubUrl),
     });
 
-    // Open a thread + persist the outbound message so replies reconcile and
-    // the unified inbox shows the full conversation.
     const sentAt = new Date();
-    const thread = await Thread.create({
-      orgId,
-      emailAccountId: account._id,
-      subject,
-      participants: [account.fromEmail, contact.email],
-      campaignId,
-      contactId: contact._id,
-      lastMessageAt: sentAt,
-      messageCount: 1,
-      status: 'open',
-    });
-    await Message.create({
-      orgId,
-      threadId: thread._id,
-      emailAccountId: account._id,
-      direction: 'out',
-      messageId: result.messageId,
-      from: account.fromEmail,
-      to: [contact.email],
-      subject,
-      bodyHtml: html,
-      references: [],
-      sentAt,
-    });
 
+    // Commit the durable "sent" marker FIRST. The `status === 'sent'` guard at
+    // the top of this handler makes any re-processing (e.g. BullMQ stalled-job
+    // recovery after a crash) a no-op, so we can't double-send past this line.
     recipient.status = 'sent';
     recipient.sentAt = sentAt;
     recipient.messageId = result.messageId;
-    recipient.threadId = thread._id;
     await recipient.save();
 
-    await Promise.all([
-      Campaign.updateOne({ _id: campaignId }, { $inc: { 'stats.sent': 1 } }),
-      EmailAccount.updateOne(
-        { _id: account._id },
-        { $inc: { 'health.sentToday': 1 }, $set: { 'health.lastSentAt': sentAt } },
-      ),
-    ]);
+    // Best-effort: open a thread + persist the outbound message (so replies
+    // reconcile and the unified inbox shows the conversation) and bump stats.
+    // A failure here must NOT re-send — the recipient is already 'sent' — so we
+    // log instead of throwing back to BullMQ.
+    try {
+      const thread = await Thread.create({
+        orgId,
+        emailAccountId: account._id,
+        subject,
+        participants: [account.fromEmail, contact.email],
+        campaignId,
+        contactId: contact._id,
+        lastMessageAt: sentAt,
+        messageCount: 1,
+        status: 'open',
+      });
+      await Message.create({
+        orgId,
+        threadId: thread._id,
+        emailAccountId: account._id,
+        direction: 'out',
+        messageId: result.messageId,
+        from: account.fromEmail,
+        to: [contact.email],
+        subject,
+        bodyHtml: html,
+        references: [],
+        sentAt,
+      });
+      recipient.threadId = thread._id;
+      await recipient.save();
+      await Promise.all([
+        Campaign.updateOne({ _id: campaignId }, { $inc: { 'stats.sent': 1 } }),
+        EmailAccount.updateOne(
+          { _id: account._id },
+          { $inc: { 'health.sentToday': 1 }, $set: { 'health.lastSentAt': sentAt } },
+        ),
+      ]);
+    } catch (postErr) {
+      log.error(
+        { err: postErr instanceof Error ? postErr.message : postErr },
+        'sent but failed to persist thread/message/stats',
+      );
+    }
     log.info({ to: contact.email, account: account.fromEmail }, 'sent');
   } catch (error) {
     const sendErr = error instanceof EmailSendError ? error : undefined;

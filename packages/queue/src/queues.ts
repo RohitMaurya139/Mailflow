@@ -33,6 +33,18 @@ export function enqueue<Q extends QueueName>(
   return (getQueue(name) as Queue).add(name, data, opts);
 }
 
+/**
+ * Add many typed jobs to a queue in one round-trip (BullMQ `addBulk`). Used by
+ * campaign fanout so enqueuing N recipients isn't N sequential Redis calls.
+ */
+export function enqueueBulk<Q extends QueueName>(
+  name: Q,
+  jobs: { data: JobDataFor<Q>; opts?: JobsOptions }[],
+): Promise<unknown> {
+  if (jobs.length === 0) return Promise.resolve([]);
+  return (getQueue(name) as Queue).addBulk(jobs.map((j) => ({ name, data: j.data, opts: j.opts })));
+}
+
 /** Convenience accessors for the queues used in the outbound pipeline. */
 export const Queues = {
   campaignFanout: () => getQueue(QUEUE_NAMES.campaignFanout),

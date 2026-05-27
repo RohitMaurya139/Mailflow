@@ -5,7 +5,7 @@ import { Worker } from 'bullmq';
 import { assertEnv } from '@mailflow/shared/env';
 import { QUEUE_CONCURRENCY, QUEUE_NAMES } from '@mailflow/shared';
 import { connectToDatabase, disconnectFromDatabase } from '@mailflow/db';
-import { closeQueues, closeRedis, getQueue, getRedis } from '@mailflow/queue';
+import { closeQueues, closeRedis, enqueue, getQueue, getRedis } from '@mailflow/queue';
 
 import { logger } from './logger';
 import { captureError, initObservability } from './observability';
@@ -18,6 +18,8 @@ import { processAiAnalyze } from './workers/ai-analyze.worker';
 import { processWorkflowRun } from './workers/workflow-run.worker';
 import { processRewardGrant } from './workers/reward-grant.worker';
 import { processAccountHealth } from './workers/account-health.worker';
+import { processDeadLetter } from './workers/dead-letter.worker';
+import { isExhausted } from './lib/retry';
 
 const HEALTH_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -64,6 +66,10 @@ async function main(): Promise<void> {
       connection,
       concurrency: QUEUE_CONCURRENCY[QUEUE_NAMES.accountHealth],
     }),
+    new Worker(QUEUE_NAMES.deadLetter, processDeadLetter, {
+      connection,
+      concurrency: QUEUE_CONCURRENCY[QUEUE_NAMES.deadLetter],
+    }),
   ];
 
   // Schedule periodic maintenance (daily-cap reset + no_reply_after scan).
@@ -78,10 +84,25 @@ async function main(): Promise<void> {
     w.on('failed', (job, err) => {
       logger.error({ queue: w.name, jobId: job?.id, err: err.message }, 'job failed');
       captureError(err, { queue: w.name, jobId: job?.id });
+      // Route permanently-failed jobs (retries exhausted) to the dead-letter
+      // queue for ops visibility. Skip the DLQ's own failures to avoid a loop.
+      if (w.name !== QUEUE_NAMES.deadLetter && job && isExhausted(job)) {
+        void enqueue(QUEUE_NAMES.deadLetter, {
+          queue: w.name,
+          jobId: job.id,
+          name: job.name,
+          data: job.data,
+          failedReason: err.message,
+          attemptsMade: job.attemptsMade,
+        }).catch((e) =>
+          logger.error(
+            { err: e instanceof Error ? e.message : e },
+            'failed to enqueue dead-letter',
+          ),
+        );
+      }
     });
-    w.on('completed', (job) =>
-      logger.debug({ queue: w.name, jobId: job.id }, 'job completed'),
-    );
+    w.on('completed', (job) => logger.debug({ queue: w.name, jobId: job.id }, 'job completed'));
     w.on('error', (err) => logger.error({ queue: w.name, err: err.message }, 'worker error'));
   }
 

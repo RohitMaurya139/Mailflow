@@ -42,6 +42,17 @@ export interface RewardGrantJob {
   contactId: string;
 }
 
+/** A job that exhausted its retries, captured for ops visibility. */
+export interface DeadLetterJob {
+  /** Queue the failed job came from. */
+  queue: string;
+  jobId?: string;
+  name: string;
+  data: unknown;
+  failedReason?: string;
+  attemptsMade: number;
+}
+
 /** Maps each queue to its job payload type. */
 export interface JobMap {
   [QUEUE_NAMES.campaignFanout]: CampaignFanoutJob;
@@ -52,9 +63,7 @@ export interface JobMap {
   [QUEUE_NAMES.workflowRun]: WorkflowRunJob;
   [QUEUE_NAMES.rewardGrant]: RewardGrantJob;
   [QUEUE_NAMES.accountHealth]: Record<string, never>;
-  [QUEUE_NAMES.deadLetter]: Record<string, unknown>;
+  [QUEUE_NAMES.deadLetter]: DeadLetterJob;
 }
 
-export type JobDataFor<Q extends QueueName> = Q extends keyof JobMap
-  ? JobMap[Q]
-  : unknown;
+export type JobDataFor<Q extends QueueName> = Q extends keyof JobMap ? JobMap[Q] : unknown;
