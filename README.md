@@ -84,6 +84,7 @@ read from the single root `.env`.
 | `pnpm lint`          | Lint the whole repo                      |
 | `pnpm typecheck`     | Type-check the whole repo                |
 | `pnpm test`          | Run unit tests                           |
+| `pnpm test:integration` | Integration tests (ephemeral MongoDB; Redis-gated) |
 | `pnpm format`        | Prettier-format the repo                 |
 
 ## Implementation status
