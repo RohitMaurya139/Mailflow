@@ -1,5 +1,6 @@
 import { connectToDatabase } from '@mailflow/db';
 import { rateLimit } from '@mailflow/queue';
+import { verifyTrackingToken } from '@mailflow/shared/tracking-token';
 import { clientIp } from '@/lib/api';
 import { recordRecipientEvent } from '@/lib/tracking-events';
 
@@ -19,10 +20,11 @@ function pixelResponse(): Response {
   });
 }
 
-/** Open-tracking pixel. `rid` is `<recipientId>.png`. Always returns the pixel. */
+/** Open-tracking pixel. `rid` is `<signed-token>.png`. Always returns the pixel. */
 export async function GET(req: Request, ctx: { params: Promise<{ rid: string }> }) {
   const { rid } = await ctx.params;
-  const recipientId = rid?.replace(/\.png$/i, '');
+  // `rid` is an HMAC-signed token; recover the recipient id only if it's valid.
+  const recipientId = verifyTrackingToken(rid?.replace(/\.png$/i, '') ?? '');
   if (recipientId) {
     try {
       // Throttle per IP to blunt enumeration of recipient ids. A high cap still

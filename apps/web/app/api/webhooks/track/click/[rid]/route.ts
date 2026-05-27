@@ -3,6 +3,7 @@ import { CampaignRecipient, connectToDatabase } from '@mailflow/db';
 import { enqueue, rateLimit } from '@mailflow/queue';
 import { QUEUE_NAMES } from '@mailflow/shared';
 import { env } from '@mailflow/shared/env';
+import { verifyTrackingToken } from '@mailflow/shared/tracking-token';
 import { clientIp } from '@/lib/api';
 import { recordRecipientEvent } from '@/lib/tracking-events';
 
@@ -24,21 +25,27 @@ export async function GET(req: Request, ctx: { params: Promise<{ rid: string }> 
     }
   }
 
-  if (rid) {
+  // `rid` is an HMAC-signed token; recover the recipient id only if valid.
+  const recipientId = verifyTrackingToken(rid ?? '');
+  if (recipientId) {
     try {
       // Throttle per IP to blunt id enumeration / workflow-trigger spam. Over
       // the cap we skip recording but still redirect the user.
       const limited = await rateLimit(`track:${clientIp(req)}`, { limit: 240, windowSec: 60 });
       if (limited.allowed) {
         await connectToDatabase();
-        await recordRecipientEvent(rid, 'click', safeTarget ? { url: safeTarget } : undefined);
+        await recordRecipientEvent(
+          recipientId,
+          'click',
+          safeTarget ? { url: safeTarget } : undefined,
+        );
         // Fire the link_clicked event for the workflow engine.
-        const recipient = await CampaignRecipient.findById(rid).select('orgId').lean();
+        const recipient = await CampaignRecipient.findById(recipientId).select('orgId').lean();
         if (recipient) {
           await enqueue(QUEUE_NAMES.workflowRun, {
             orgId: recipient.orgId.toString(),
             event: 'link_clicked',
-            contextRef: { kind: 'CampaignRecipient', id: rid },
+            contextRef: { kind: 'CampaignRecipient', id: recipientId },
           });
         }
       }

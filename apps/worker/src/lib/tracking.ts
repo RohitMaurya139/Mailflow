@@ -2,12 +2,9 @@
  * Inject open-tracking pixel, rewrite links for click tracking, and append the
  * unsubscribe footer. All URLs point at the web app's public webhook routes.
  */
-import {
-  TRACKING_CLICK_PATH,
-  TRACKING_PIXEL_PATH,
-  UNSUBSCRIBE_PATH,
-} from '@mailflow/shared';
+import { TRACKING_CLICK_PATH, TRACKING_PIXEL_PATH, UNSUBSCRIBE_PATH } from '@mailflow/shared';
 import { env } from '@mailflow/shared/env';
+import { signTrackingId } from '@mailflow/shared/tracking-token';
 
 const HREF_RE = /href\s*=\s*"(https?:\/\/[^"]+)"/gi;
 
@@ -18,8 +15,8 @@ export interface TrackingContext {
 }
 
 /** Rewrite `http(s)` links to pass through the click-tracking redirect. */
-function rewriteLinks(html: string, recipientId: string): string {
-  const base = `${env.APP_URL}${TRACKING_CLICK_PATH}/${recipientId}`;
+function rewriteLinks(html: string, token: string): string {
+  const base = `${env.APP_URL}${TRACKING_CLICK_PATH}/${token}`;
   return html.replace(HREF_RE, (_m, url: string) => {
     // Don't wrap the unsubscribe link.
     if (url.includes(UNSUBSCRIBE_PATH)) return `href="${url}"`;
@@ -27,8 +24,8 @@ function rewriteLinks(html: string, recipientId: string): string {
   });
 }
 
-function pixel(recipientId: string): string {
-  const src = `${env.APP_URL}${TRACKING_PIXEL_PATH}/${recipientId}.png`;
+function pixel(token: string): string {
+  const src = `${env.APP_URL}${TRACKING_PIXEL_PATH}/${token}.png`;
   return `<img src="${src}" width="1" height="1" alt="" style="display:none"/>`;
 }
 
@@ -42,6 +39,8 @@ ${text} <a href="${link}" style="color:#64748b">Unsubscribe</a>.
 
 /** Apply all tracking transforms to a rendered HTML body. */
 export function applyTracking(html: string, ctx: TrackingContext): string {
-  const tracked = rewriteLinks(html, ctx.recipientId);
-  return `${tracked}\n${footer(ctx.unsubscribeToken, ctx.unsubscribeFooter)}\n${pixel(ctx.recipientId)}`;
+  // Sign the recipient id so the open/click URLs aren't enumerable/forgeable.
+  const token = signTrackingId(ctx.recipientId);
+  const tracked = rewriteLinks(html, token);
+  return `${tracked}\n${footer(ctx.unsubscribeToken, ctx.unsubscribeFooter)}\n${pixel(token)}`;
 }
