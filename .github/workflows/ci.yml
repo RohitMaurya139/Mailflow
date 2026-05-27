@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Typecheck worker
+        run: pnpm --filter @mailflow/worker exec tsc --noEmit
+
+      - name: Build web (typechecks + bundles)
+        run: pnpm --filter @mailflow/web build
+        env:
+          # Placeholder values so the build can evaluate config at import time.
+          # Real secrets are provided by the hosting platform at runtime.
+          NODE_ENV: production
+          MONGODB_URI: mongodb://localhost:27017/mailflow
+          REDIS_URL: redis://localhost:6379
+          AUTH_SECRET: ci-placeholder-auth-secret-0123456789
+          ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+          APP_URL: http://localhost:3000
