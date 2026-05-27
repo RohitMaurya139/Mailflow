@@ -1,6 +1,7 @@
 import { connectToDatabase, EmailAccount } from '@mailflow/db';
 import { enqueue } from '@mailflow/queue';
 import { QUEUE_NAMES } from '@mailflow/shared';
+import { safeStringEqual } from '@mailflow/shared/crypto';
 import { env } from '@mailflow/shared/env';
 
 /**
@@ -9,10 +10,12 @@ import { env } from '@mailflow/shared/env';
  * The subscription is configured with `?token=` which we verify here.
  */
 export async function POST(req: Request) {
-  // Verify the shared push token when configured.
+  // Verify the shared push token when configured. The token rides in the push
+  // endpoint's query string — that's the Pub/Sub mechanism — so we compare it
+  // in constant time to avoid leaking it via timing.
   if (env.GMAIL_PUBSUB_VERIFICATION_TOKEN) {
-    const token = new URL(req.url).searchParams.get('token');
-    if (token !== env.GMAIL_PUBSUB_VERIFICATION_TOKEN) {
+    const token = new URL(req.url).searchParams.get('token') ?? '';
+    if (!safeStringEqual(token, env.GMAIL_PUBSUB_VERIFICATION_TOKEN)) {
       return new Response('Unauthorized', { status: 401 });
     }
   }

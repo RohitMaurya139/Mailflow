@@ -4,5 +4,11 @@
  */
 export { getRedis, closeRedis } from './connection';
 export { getQueue, enqueue, enqueueBulk, Queues, closeQueues } from './queues';
-export { consumeSendToken, getSendUsage, type ConsumeResult } from './rate-limiter';
+export {
+  consumeSendToken,
+  getSendUsage,
+  rateLimit,
+  type ConsumeResult,
+  type RateLimitResult,
+} from './rate-limiter';
 export * from './jobs';

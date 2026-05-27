@@ -81,10 +81,49 @@ export async function consumeSendToken(
   };
 }
 
+// Generic fixed-window limiter: INCR a per-key counter that expires after the
+// window. Returns {n, ttl}. One round trip.
+const RATE_LIMIT_LUA = `
+local n = redis.call('INCR', KEYS[1])
+if n == 1 then redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1])) end
+local ttl = redis.call('TTL', KEYS[1])
+return {n, ttl}
+`;
+
+export interface RateLimitResult {
+  allowed: boolean;
+  /** Requests remaining in the current window (0 when blocked). */
+  remaining: number;
+  /** Time until the window resets (ms). */
+  retryAfterMs: number;
+}
+
+/**
+ * Fixed-window rate limit. `key` is an opaque caller-chosen identifier (e.g.
+ * `signup:1.2.3.4`); it's namespaced under `rl:` internally. Allows up to
+ * `limit` requests per `windowSec`.
+ */
+export async function rateLimit(
+  key: string,
+  opts: { limit: number; windowSec: number },
+): Promise<RateLimitResult> {
+  const [count, ttl] = (await getRedis().eval(
+    RATE_LIMIT_LUA,
+    1,
+    `rl:${key}`,
+    String(opts.windowSec),
+  )) as [number, number];
+
+  const ttlSec = ttl >= 0 ? ttl : opts.windowSec;
+  return {
+    allowed: count <= opts.limit,
+    remaining: Math.max(0, opts.limit - count),
+    retryAfterMs: ttlSec * 1000,
+  };
+}
+
 /** Current usage counts for an account (for health/analytics display). */
-export async function getSendUsage(
-  accountId: string,
-): Promise<{ hour: number; day: number }> {
+export async function getSendUsage(accountId: string): Promise<{ hour: number; day: number }> {
   const keys = bucketKeys(accountId);
   const [h, d] = await getRedis().mget(keys.hour, keys.day);
   return { hour: Number(h ?? 0), day: Number(d ?? 0) };

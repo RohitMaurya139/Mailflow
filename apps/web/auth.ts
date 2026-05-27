@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
+import { rateLimit } from '@mailflow/queue';
 import { signInSchema, type Role } from '@mailflow/shared';
 import { env } from '@mailflow/shared/env';
 
@@ -15,7 +16,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
-      allowDangerousEmailAccountLinking: true,
+      // Do NOT auto-link a Google sign-in to an existing same-email account:
+      // credentials accounts aren't email-verified here, so auto-linking is an
+      // account-takeover vector. (Explicit, verified linking is a follow-up.)
+      allowDangerousEmailAccountLinking: false,
     }),
     Credentials({
       credentials: {
@@ -25,6 +29,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       authorize: async (credentials) => {
         const parsed = signInSchema.safeParse(credentials);
         if (!parsed.success) return null;
+        // Throttle password attempts per email to blunt brute-forcing. On limit
+        // we return null (same as a bad password) — no work, no info leak.
+        const limited = await rateLimit(`signin:${parsed.data.email.toLowerCase()}`, {
+          limit: 10,
+          windowSec: 900,
+        });
+        if (!limited.allowed) return null;
         const user = await verifyCredentials(parsed.data.email, parsed.data.password);
         if (!user) return null;
         return {

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./env": "./src/env.ts",
+    "./crypto": "./src/crypto.ts",
     "./constants": "./src/constants.ts",
     "./schemas": "./src/schemas/index.ts"
   },

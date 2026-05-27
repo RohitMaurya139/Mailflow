@@ -1,6 +1,7 @@
 import { csvImportMappingSchema } from '@mailflow/shared';
+import { rateLimit } from '@mailflow/queue';
 
-import { badRequest, ok, serverError } from '@/lib/api';
+import { badRequest, ok, serverError, tooManyRequests } from '@/lib/api';
 import { withOrg } from '@/lib/withOrg';
 import { audit } from '@/lib/audit';
 import { importContacts } from '@/lib/contacts-service';
@@ -12,6 +13,12 @@ import { importContacts } from '@/lib/contacts-service';
  */
 export const POST = withOrg(
   async (req, ctx) => {
+    // CSV imports are heavy (parse + bulk upsert); cap per org.
+    const limited = await rateLimit(`import:${ctx.orgId}`, { limit: 10, windowSec: 3600 });
+    if (!limited.allowed) {
+      return tooManyRequests('Too many imports. Try again later.', limited.retryAfterMs);
+    }
+
     let form: FormData;
     try {
       form = await req.formData();
