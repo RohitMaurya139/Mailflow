@@ -35,7 +35,8 @@ coverage/
 playwright-report/
 test-results/
 
-# Code review graph (auto-generated, project-isolated)
+# Claude Code local settings + auto-generated review graph
+.claude/settings.local.json
 .claude/crg/
 
 # Misc
