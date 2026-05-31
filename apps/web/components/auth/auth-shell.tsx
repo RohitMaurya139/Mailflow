@@ -51,7 +51,7 @@ export function AuthShell({
           {/* Overnight activity */}
           <div className="border-hairline bg-canvas mt-9 max-w-[460px] overflow-hidden rounded-xl border">
             <div className="border-hairline flex items-center gap-2 border-b px-3.5 py-2.5">
-              <span className="mono text-muted text-[10px]">OVERNIGHT · 6h ago → now</span>
+              <span className="mono text-muted-foreground text-[10px]">OVERNIGHT · 6h ago → now</span>
               <span className="ml-auto flex items-center gap-1.5 text-[12px]">
                 <span className="bg-sage size-1.5 rounded-full" /> live
               </span>
@@ -61,10 +61,10 @@ export function AuthShell({
                 key={i}
                 className={`flex items-center gap-3 px-3.5 py-2.5 ${i < activity.length - 1 ? 'border-hairline border-b' : ''}`}
               >
-                <span className="mono text-muted w-9 text-[11px]">{t}</span>
+                <span className="mono text-muted-foreground w-9 text-[11px]">{t}</span>
                 <span className="flex-1 text-[13px]">{msg}</span>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${tone ? toneClass[tone] : 'border-hairline text-muted border'}`}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${tone ? toneClass[tone] : 'border-hairline text-muted-foreground border'}`}
                 >
                   {lbl}
                 </span>
@@ -72,14 +72,14 @@ export function AuthShell({
             ))}
           </div>
         </div>
-        <div className="text-muted mono text-[11px] tracking-[0.06em]">
+        <div className="text-muted-foreground mono text-[11px] tracking-[0.06em]">
           “One dashboard. No per-seat math.”
         </div>
       </div>
 
       {/* Right — form */}
       <div className="bg-canvas flex flex-col px-6 py-10 sm:px-14">
-        <div className="text-muted flex items-center justify-end gap-2 text-[13px]">
+        <div className="text-muted-foreground flex items-center justify-end gap-2 text-[13px]">
           {switchPrompt}{' '}
           <Link href={switchHref} className="text-clay font-medium hover:underline">
             {switchLabel} →
@@ -88,7 +88,7 @@ export function AuthShell({
         <div className="mx-auto flex w-full max-w-[380px] flex-1 flex-col justify-center">
           {children}
         </div>
-        <div className="text-muted mono flex justify-between text-[11px]">
+        <div className="text-muted-foreground mono flex justify-between text-[11px]">
           <span>SOC 2 · Type II</span>
           <span>support@mailflow.io</span>
           <span>v2.4.1</span>

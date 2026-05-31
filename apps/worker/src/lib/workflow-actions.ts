@@ -30,8 +30,8 @@ async function sendTemplate(params: Record<string, unknown>, ctx: WorkflowContex
 
   const [template, contact, thread] = await Promise.all([
     Template.findOne({ _id: templateId, orgId: ctx.orgId }),
-    Contact.findById(ctx.contactId),
-    Thread.findById(ctx.threadId),
+    Contact.findOne({ _id: ctx.contactId, orgId: ctx.orgId }),
+    Thread.findOne({ _id: ctx.threadId, orgId: ctx.orgId }),
   ]);
   if (!template || !contact || !thread) throw new Error('template/contact/thread missing');
 

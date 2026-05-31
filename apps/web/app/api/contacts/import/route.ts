@@ -1,4 +1,4 @@
-import { csvImportMappingSchema } from '@mailflow/shared';
+import { CSV_UPLOAD_MAX_BYTES, csvImportMappingSchema } from '@mailflow/shared';
 import { rateLimit } from '@mailflow/queue';
 
 import { badRequest, ok, serverError, tooManyRequests } from '@/lib/api';
@@ -30,6 +30,16 @@ export const POST = withOrg(
     const payloadRaw = form.get('payload');
     if (!(file instanceof File)) return badRequest('Missing CSV file');
     if (typeof payloadRaw !== 'string') return badRequest('Missing import payload');
+
+    // Validate the upload by type and size BEFORE reading it into memory —
+    // `file.text()` would otherwise buffer an arbitrarily large body, and the
+    // row cap only applies after a full parse.
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      return badRequest('Only .csv files are accepted');
+    }
+    if (file.size > CSV_UPLOAD_MAX_BYTES) {
+      return badRequest(`CSV exceeds the ${CSV_UPLOAD_MAX_BYTES / (1024 * 1024)} MB limit`);
+    }
 
     let payloadJson: unknown;
     try {

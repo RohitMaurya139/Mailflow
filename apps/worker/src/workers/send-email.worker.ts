@@ -25,6 +25,8 @@ import {
 import { applyTracking } from '../lib/tracking';
 
 const MAX_ATTEMPTS = DEFAULT_JOB_OPTS.attempts;
+/** A recipient stuck in `sending` longer than this is a crashed attempt, re-claimable. */
+const STALE_SENDING_MS = 5 * 60_000;
 
 /** Reschedule this recipient for a later attempt without consuming a retry. */
 async function reschedule(job: SendEmailJob, delayMs: number): Promise<void> {
@@ -38,7 +40,7 @@ export async function processSendEmail(job: Job<SendEmailJob>): Promise<void> {
   const { orgId, campaignId, recipientId } = job.data;
   const log = logger.child({ worker: 'send-email', recipientId });
 
-  const recipient = await CampaignRecipient.findOne({ _id: recipientId, orgId });
+  let recipient = await CampaignRecipient.findOne({ _id: recipientId, orgId });
   if (!recipient || recipient.status === 'sent') return; // idempotent
 
   const campaign = await Campaign.findOne({ _id: campaignId, orgId });
@@ -87,10 +89,27 @@ export async function processSendEmail(job: Job<SendEmailJob>): Promise<void> {
     return;
   }
 
-  recipient.status = 'sending';
-  recipient.emailAccountId = account._id;
-  recipient.attempts += 1;
-  await recipient.save();
+  // Exactly-once claim: atomically flip queued → sending so two concurrent jobs
+  // for the same recipient (e.g. a re-fanout racing a rescheduled retry) can
+  // never both send. A `sending` recipient older than STALE_SENDING_MS is a
+  // crashed attempt and may be re-claimed — preserving stalled-job recovery.
+  const claimed = await CampaignRecipient.findOneAndUpdate(
+    {
+      _id: recipientId,
+      orgId,
+      $or: [
+        { status: 'queued' },
+        { status: 'sending', updatedAt: { $lt: new Date(Date.now() - STALE_SENDING_MS) } },
+      ],
+    },
+    { $set: { status: 'sending', emailAccountId: account._id }, $inc: { attempts: 1 } },
+    { new: true },
+  );
+  if (!claimed) {
+    log.info('recipient already in-flight or sent — skipping (exactly-once guard)');
+    return;
+  }
+  recipient = claimed;
 
   // Personalize.
   const cf =

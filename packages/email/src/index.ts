@@ -28,6 +28,7 @@ export {
   registerGmailWatch,
   stopGmailWatch,
   fetchHistory,
+  listInboxMessageIds,
   getRawMessage,
   type GmailAuth,
   type GmailClientOptions,

@@ -35,7 +35,7 @@ export function Topbar({ name, email, image }: TopbarProps) {
       >
         <Search className="size-3.5" strokeWidth={1.6} />
         <span>Search threads, contacts, campaigns…</span>
-        <span className="mono text-muted ml-auto rounded border border-hairline bg-canvas px-1.5 py-0.5 text-[10px]">
+        <span className="mono text-muted-foreground ml-auto rounded border border-hairline bg-canvas px-1.5 py-0.5 text-[10px]">
           ⌘K
         </span>
       </button>

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { Brand } from '@/components/dashboard/brand';
+import { ModeToggle } from '@/components/mode-toggle';
 
 export const metadata = {
   title: 'MailFlow — Cold email, warm enough to reply to',
@@ -105,6 +106,7 @@ export default function HomePage() {
           </span>
         </div>
         <div className="ml-auto flex items-center gap-3">
+          <ModeToggle />
           <Link href="/signin" className="text-ink-2 text-[13.5px] hover:underline">
             Sign in
           </Link>
@@ -146,7 +148,7 @@ export default function HomePage() {
           <button className="border-hairline-strong text-ink inline-flex h-[38px] items-center rounded-sm border px-4 text-[14px] font-medium hover:bg-surface">
             Book a 15-min demo
           </button>
-          <div className="text-muted ml-4 hidden items-center gap-2.5 text-[12.5px] sm:flex">
+          <div className="text-muted-foreground ml-4 hidden items-center gap-2.5 text-[12.5px] sm:flex">
             <span className="mono">SOC 2 · Type II</span>
             <span>·</span>
             <span>GDPR-ready</span>
@@ -163,7 +165,7 @@ export default function HomePage() {
             <span className="size-2.5 rounded-full bg-[#E5C2B9]" />
             <span className="size-2.5 rounded-full bg-[#E9D9B4]" />
             <span className="size-2.5 rounded-full bg-[#C9D9C8]" />
-            <span className="mono text-muted mx-auto text-[11px]">app.mailflow.io / inbox</span>
+            <span className="mono text-muted-foreground mx-auto text-[11px]">app.mailflow.io / inbox</span>
           </div>
           <div className="grid h-[480px] grid-cols-[200px_300px_1fr_260px] max-lg:grid-cols-[1fr]">
             {/* mini sidebar */}
@@ -178,7 +180,7 @@ export default function HomePage() {
                   <Icon className={`size-[15px] ${active ? 'text-clay' : 'opacity-70'}`} strokeWidth={1.6} />
                   <span>{label}</span>
                   {badge && (
-                    <span className="bg-surface-2 text-muted mono ml-auto rounded-full px-1.5 text-[10px]">
+                    <span className="bg-surface-2 text-muted-foreground mono ml-auto rounded-full px-1.5 text-[10px]">
                       {badge}
                     </span>
                   )}
@@ -190,7 +192,7 @@ export default function HomePage() {
               <div className="border-hairline flex items-center gap-2 border-b px-3.5 py-3">
                 <span className="font-serif text-[17px]">Replies</span>
                 <span className="bg-clay rounded-full px-1.5 text-[10px] font-medium text-white">12</span>
-                <ListFilter className="text-muted ml-auto size-4" strokeWidth={1.6} />
+                <ListFilter className="text-muted-foreground ml-auto size-4" strokeWidth={1.6} />
               </div>
               {previewThreads.map(([who, sub, snippet, tone, intent, t], i) => (
                 <div
@@ -199,13 +201,13 @@ export default function HomePage() {
                 >
                   <div className="flex items-baseline gap-2">
                     <span className="text-[13px] font-medium">{who}</span>
-                    <span className="mono text-muted ml-auto text-[11px]">{t}</span>
+                    <span className="mono text-muted-foreground ml-auto text-[11px]">{t}</span>
                   </div>
                   <div className="mt-0.5 text-[12.5px]">{sub}</div>
-                  <div className="text-muted mt-0.5 truncate text-[12px]">{snippet}</div>
+                  <div className="text-muted-foreground mt-0.5 truncate text-[12px]">{snippet}</div>
                   <div className="mt-1.5">
                     <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${tone ? toneClass[tone] : 'border-hairline text-muted border'}`}
+                      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${tone ? toneClass[tone] : 'border-hairline text-muted-foreground border'}`}
                     >
                       {intent}
                     </span>
@@ -221,7 +223,7 @@ export default function HomePage() {
                   Interested
                 </span>
               </div>
-              <div className="text-muted mono mt-1 text-[11px]">
+              <div className="text-muted-foreground mono mt-1 text-[11px]">
                 3 messages · started Mon, Jun 3 · sender pool · acme-sales-04
               </div>
               <div className="border-hairline bg-surface-2 mt-4 rounded-md border p-3.5">
@@ -230,7 +232,7 @@ export default function HomePage() {
                     PS
                   </span>
                   <b>Priya Shah</b>
-                  <span className="mono text-muted ml-auto text-[11px]">2m ago</span>
+                  <span className="mono text-muted-foreground ml-auto text-[11px]">2m ago</span>
                 </div>
                 <p className="mt-2.5 text-[13.5px] leading-[1.55]">
                   Yes — let’s find a time next week. Tuesday or Wednesday afternoon works. Could you
@@ -268,7 +270,7 @@ export default function HomePage() {
               {[['Intent', 'Interested'], ['Confidence', '0.94'], ['Next step', 'Book meeting'], ['Sentiment', 'Positive']].map(
                 ([k, v]) => (
                   <div key={k} className="border-hairline flex border-b py-1.5 text-[12.5px]">
-                    <span className="text-muted">{k}</span>
+                    <span className="text-muted-foreground">{k}</span>
                     <span className="ml-auto">{v}</span>
                   </div>
                 ),
@@ -279,7 +281,7 @@ export default function HomePage() {
                   <GitBranch className="size-3.5" strokeWidth={1.6} />
                   <b>Hot-reply playbook</b>
                 </div>
-                <div className="text-muted mt-1">
+                <div className="text-muted-foreground mt-1">
                   + Tag <span className="mono bg-surface-2 rounded px-1.5 py-0.5 text-[10.5px]">pilot-Q3</span> · Notify Slack
                 </div>
               </div>
@@ -288,7 +290,7 @@ export default function HomePage() {
         </div>
 
         {/* logo bar */}
-        <div className="text-muted mt-14 flex flex-wrap items-center gap-x-12 gap-y-4 text-[12px]">
+        <div className="text-muted-foreground mt-14 flex flex-wrap items-center gap-x-12 gap-y-4 text-[12px]">
           <span className="mono">Sending from teams at</span>
           {['NORTHBEAM', 'ACME · SALES', 'BRIGHTLINE', 'OCTAVE', 'KEELBOAT', 'HARBOR & CO'].map((l) => (
             <span key={l} className="font-serif text-[18px] tracking-[0.03em] opacity-60">
@@ -321,10 +323,10 @@ export default function HomePage() {
                 <div className="bg-canvas border-hairline text-clay grid size-9 place-items-center rounded-md border">
                   <Icon className="size-[18px]" strokeWidth={1.6} />
                 </div>
-                <span className="mono text-muted text-[11px]">{n}</span>
+                <span className="mono text-muted-foreground text-[11px]">{n}</span>
               </div>
               <h3 className="font-serif mt-5 text-[22px] tracking-[-0.01em]">{t}</h3>
-              <p className="text-muted mt-2.5 text-[13.5px] leading-[1.55]">{d}</p>
+              <p className="text-muted-foreground mt-2.5 text-[13.5px] leading-[1.55]">{d}</p>
             </div>
           ))}
         </div>
@@ -342,11 +344,11 @@ export default function HomePage() {
               key={t}
               className={`border-hairline relative rounded-[10px] border px-[18px] pt-5 pb-[22px] ${i === 2 ? 'bg-clay/[0.06]' : 'bg-surface'}`}
             >
-              <div className={`mono text-[10px] tracking-[0.06em] ${i === 2 ? 'text-clay' : 'text-muted'}`}>
+              <div className={`mono text-[10px] tracking-[0.06em] ${i === 2 ? 'text-clay' : 'text-muted-foreground'}`}>
                 STEP {String(i + 1).padStart(2, '0')}
               </div>
               <div className="font-serif mt-1.5 text-[22px]">{t}</div>
-              <div className="text-muted mt-2 text-[12.5px]">{d}</div>
+              <div className="text-muted-foreground mt-2 text-[12.5px]">{d}</div>
               {i < steps.length - 1 && (
                 <div className="bg-canvas text-muted-2 absolute top-1/2 -right-3 hidden -translate-y-1/2 lg:block">
                   <ChevronRight className="size-4" strokeWidth={1.6} />
@@ -369,7 +371,7 @@ export default function HomePage() {
               <div key={n}>
                 <div className="font-serif text-[64px] leading-none tracking-[-0.03em]">{n}</div>
                 <div className="mt-1.5 text-[14px]">{l}</div>
-                <div className="text-muted mono mt-1 text-[11px]">{s}</div>
+                <div className="text-muted-foreground mono mt-1 text-[11px]">{s}</div>
               </div>
             ))}
           </div>
@@ -406,7 +408,7 @@ export default function HomePage() {
               <br />
               <em className="text-clay italic">this afternoon.</em>
             </h2>
-            <p className="text-muted mt-4 max-w-[480px] text-[15px]">
+            <p className="text-muted-foreground mt-4 max-w-[480px] text-[15px]">
               Free tier ships with 2 mailboxes, 500 sends/mo, and the full AI inbox. Upgrade only
               when you actually need to.
             </p>
@@ -424,7 +426,7 @@ export default function HomePage() {
             >
               <GoogleMark /> Continue with Google
             </Link>
-            <span className="text-muted mono mt-2 text-center text-[11px]">NO CARD · 2 MIN SETUP</span>
+            <span className="text-muted-foreground mono mt-2 text-center text-[11px]">NO CARD · 2 MIN SETUP</span>
           </div>
         </div>
       </section>
@@ -432,10 +434,10 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-hairline flex flex-wrap items-center gap-6 border-t px-6 pt-8 pb-12 sm:px-14">
         <Brand />
-        <span className="text-muted text-[12px]">
+        <span className="text-muted-foreground text-[12px]">
           © 2026 MailFlow Labs. Built on Next.js, BullMQ, MongoDB, OpenRouter.
         </span>
-        <div className="text-muted ml-auto flex gap-5 text-[12.5px]">
+        <div className="text-muted-foreground ml-auto flex gap-5 text-[12.5px]">
           {['Status', 'Docs', 'API', 'Security', 'Privacy', 'Terms'].map((l) => (
             <span key={l}>{l}</span>
           ))}

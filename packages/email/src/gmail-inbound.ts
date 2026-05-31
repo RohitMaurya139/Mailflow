@@ -93,6 +93,28 @@ export async function fetchHistory(
   return { messageIds: [...ids], historyId: latestHistoryId };
 }
 
+/**
+ * List recent INBOX message ids matching a Gmail search query. Used as a
+ * fallback to the Pub/Sub push watch (e.g. local dev with no public webhook,
+ * or a periodic reconciliation poll). `query` is Gmail search syntax.
+ */
+export async function listInboxMessageIds(
+  opts: GmailClientOptions,
+  query = 'newer_than:7d',
+  max = 50,
+): Promise<string[]> {
+  const gmail = google.gmail({ version: 'v1', auth: authedClient(opts) });
+  const { data } = await gmail.users.messages.list({
+    userId: 'me',
+    q: query,
+    labelIds: ['INBOX'],
+    maxResults: max,
+  });
+  return (data.messages ?? [])
+    .map((m) => m.id)
+    .filter((id): id is string => Boolean(id));
+}
+
 /** Fetch a single message in raw RFC822 form. */
 export async function getRawMessage(
   opts: GmailClientOptions,

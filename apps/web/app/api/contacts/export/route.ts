@@ -1,6 +1,6 @@
 import Papa from 'papaparse';
 import { Contact } from '@mailflow/db';
-import { contactQuerySchema } from '@mailflow/shared';
+import { contactQuerySchema, sanitizeCsvCell } from '@mailflow/shared';
 import type { FilterQuery } from 'mongoose';
 
 import { parseQuery } from '@/lib/api';
@@ -18,12 +18,16 @@ export const GET = withOrg(async (req, ctx) => {
   if (tag) filter.tags = tag;
 
   const docs = await Contact.find(filter).sort({ createdAt: -1 }).lean();
+  // Sanitize every user-controlled cell against CSV/formula injection — a
+  // contact's name or tag could be `=cmd|...` and execute when the export is
+  // opened in a spreadsheet. `email`/`status`/`createdAt` are system-shaped but
+  // sanitized too for defence in depth.
   const rows = docs.map((c) => ({
-    email: c.email,
-    firstName: c.firstName ?? '',
-    lastName: c.lastName ?? '',
-    status: c.status,
-    tags: (c.tags ?? []).join('|'),
+    email: sanitizeCsvCell(c.email),
+    firstName: sanitizeCsvCell(c.firstName ?? ''),
+    lastName: sanitizeCsvCell(c.lastName ?? ''),
+    status: sanitizeCsvCell(c.status),
+    tags: sanitizeCsvCell((c.tags ?? []).join('|')),
     createdAt: c.createdAt.toISOString(),
   }));
 

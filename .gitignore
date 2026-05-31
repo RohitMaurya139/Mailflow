@@ -42,3 +42,14 @@ test-results/
 *.local
 tmp/
 mf-catch.json
+
+# Project artifacts not needed for the app or Vercel deploy
+# local reference screenshots
+reference/
+# standalone design prototype (never deployed)
+mailflow-redesign/
+# planning doc + its generator
+Velvety-Dawn-MailFlow-Plan.pdf
+_generate_plan_pdf.py
+# local dev/demo scripts (_sync-inbox, _seed-replies)
+apps/worker/src/_*.ts

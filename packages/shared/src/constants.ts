@@ -172,6 +172,8 @@ export const AI_MODEL_ROUTING: Record<AiTask, { primary: string; fallback?: stri
 export const DEFAULT_PAGE_SIZE = 25;
 export const MAX_PAGE_SIZE = 100;
 export const CSV_IMPORT_MAX_ROWS = 100_000;
+/** Max accepted CSV upload size (bytes). Bounds memory before the file is parsed. */
+export const CSV_UPLOAD_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 export const TRACKING_PIXEL_PATH = '/api/webhooks/track/open';
 export const TRACKING_CLICK_PATH = '/api/webhooks/track/click';
 export const UNSUBSCRIBE_PATH = '/api/unsubscribe';

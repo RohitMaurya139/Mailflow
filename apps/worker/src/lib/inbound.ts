@@ -149,7 +149,12 @@ export async function ingestParsedMessage(params: IngestParams): Promise<IngestR
   );
 
   // 7. Record a reply against the originating campaign (first reply only).
-  const linkRecipient =
+  // Match precedence:
+  //   a) exact recipient via the reference chain (Message-ID),
+  //   b) an existing campaign thread,
+  //   c) ANY recent campaign send to this contact — resilient to providers
+  //      (e.g. Gmail) that rewrite the Message-ID so the chain doesn't match.
+  let linkRecipient =
     recipient ??
     (thread.campaignId && thread.contactId
       ? await CampaignRecipient.findOne({
@@ -158,11 +163,32 @@ export async function ingestParsedMessage(params: IngestParams): Promise<IngestR
         })
       : null);
 
+  if (!linkRecipient && contact?._id) {
+    linkRecipient = await CampaignRecipient.findOne({
+      orgId,
+      contactId: contact._id,
+      status: { $in: ['sent', 'bounced'] },
+    }).sort({ sentAt: -1 });
+  }
+
   let isReply = false;
   let linkedCampaignId: string | undefined;
   if (linkRecipient) {
     isReply = true;
     linkedCampaignId = linkRecipient.campaignId.toString();
+    // Surface the thread under its campaign even when the reply opened a fresh
+    // thread (because the Message-ID chain didn't match).
+    if (!thread.campaignId) {
+      await Thread.updateOne(
+        { _id: thread._id },
+        {
+          $set: {
+            campaignId: linkRecipient.campaignId,
+            contactId: linkRecipient.contactId,
+          },
+        },
+      );
+    }
     const firstReply = !linkRecipient.events.some((e) => e.type === 'reply');
     linkRecipient.events.push({ type: 'reply', at: when });
     await linkRecipient.save();

@@ -68,8 +68,30 @@ export class GmailProvider implements EmailProvider {
         userId: 'me',
         requestBody: { raw },
       });
+
+      // Gmail may assign its own RFC822 Message-ID regardless of the one we put
+      // in the MIME. Read back the authoritative header so replies (whose
+      // In-Reply-To references the *sent* id) reconcile to this message.
+      let messageId = input.messageId;
+      if (res.data.id) {
+        try {
+          const meta = await this.gmail().users.messages.get({
+            userId: 'me',
+            id: res.data.id,
+            format: 'metadata',
+            metadataHeaders: ['Message-Id'],
+          });
+          const header = meta.data.payload?.headers?.find(
+            (h) => h.name?.toLowerCase() === 'message-id',
+          )?.value;
+          if (header) messageId = header;
+        } catch {
+          // Non-fatal: fall back to the id we generated.
+        }
+      }
+
       return {
-        messageId: input.messageId,
+        messageId,
         providerMessageId: res.data.id ?? undefined,
         threadId: res.data.threadId ?? undefined,
       };

@@ -64,6 +64,8 @@ export function ContactsView({ lists }: { lists: ListOption[] }) {
   const [listFilter, setListFilter] = useState(ALL);
   const [statusFilter, setStatusFilter] = useState(ALL);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [addingToList, setAddingToList] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,13 +98,55 @@ export function ContactsView({ lists }: { lists: ListOption[] }) {
   }, [load, router]);
   useEffect(() => {
     setPage(1);
+    setSelected(new Set());
   }, [search, listFilter, statusFilter]);
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  const allOnPageSelected = items.length > 0 && items.every((c) => selected.has(c.id));
+  function toggleAll() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) items.forEach((c) => next.delete(c.id));
+      else items.forEach((c) => next.add(c.id));
+      return next;
+    });
+  }
+
+  async function addToList(listId: string) {
+    if (selected.size === 0) return;
+    setAddingToList(true);
+    try {
+      const { added } = await apiRequest<{ added: number }>(`/api/lists/${listId}/contacts`, {
+        method: 'POST',
+        body: JSON.stringify({ contactIds: [...selected] }),
+      });
+      toast.success(`Added ${added} ${added === 1 ? 'contact' : 'contacts'} to the list`);
+      setSelected(new Set());
+      refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add to list');
+    } finally {
+      setAddingToList(false);
+    }
+  }
 
   async function remove(id: string) {
     if (!confirm('Delete this contact?')) return;
     try {
       await apiRequest(`/api/contacts/${id}`, { method: 'DELETE' });
       toast.success('Contact deleted');
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       load();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete');
@@ -178,11 +222,51 @@ export function ContactsView({ lists }: { lists: ListOption[] }) {
           </div>
         </div>
 
+        {selected.size > 0 && (
+          <div className="bg-surface border-hairline mb-3.5 flex flex-wrap items-center gap-2 rounded-lg border p-2.5 pl-4">
+            <span className="mono text-[13px]">{selected.size} selected</span>
+            <div className="ml-auto flex items-center gap-2">
+              {addingToList && <Loader2 className="text-muted-foreground size-4 animate-spin" />}
+              <Select onValueChange={addToList} disabled={addingToList || lists.length === 0}>
+                <SelectTrigger className="w-52">
+                  <SelectValue
+                    placeholder={lists.length === 0 ? 'No lists — create one first' : 'Add to list…'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {lists.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelected(new Set())}
+                disabled={addingToList}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="bg-card border-hairline overflow-hidden rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-[18px]">Contact</TableHead>
+                <TableHead className="w-10 pl-[18px]">
+                  <input
+                    type="checkbox"
+                    className="size-4 align-middle"
+                    aria-label="Select all on this page"
+                    checked={allOnPageSelected}
+                    onChange={toggleAll}
+                  />
+                </TableHead>
+                <TableHead>Contact</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Tags</TableHead>
                 <TableHead className="text-right">Added</TableHead>
@@ -192,13 +276,13 @@ export function ContactsView({ lists }: { lists: ListOption[] }) {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-muted-foreground py-10 text-center">
+                  <TableCell colSpan={6} className="text-muted-foreground py-10 text-center">
                     <Loader2 className="mx-auto size-5 animate-spin" />
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-muted-foreground py-10 text-center">
+                  <TableCell colSpan={6} className="text-muted-foreground py-10 text-center">
                     No contacts here. Import a CSV or add one.
                   </TableCell>
                 </TableRow>
@@ -207,8 +291,17 @@ export function ContactsView({ lists }: { lists: ListOption[] }) {
                   const name = [c.firstName, c.lastName].filter(Boolean).join(' ');
                   const initials = (name || c.email).slice(0, 2).toUpperCase();
                   return (
-                    <TableRow key={c.id}>
+                    <TableRow key={c.id} data-state={selected.has(c.id) ? 'selected' : undefined}>
                       <TableCell className="pl-[18px]">
+                        <input
+                          type="checkbox"
+                          className="size-4 align-middle"
+                          aria-label={`Select ${c.email}`}
+                          checked={selected.has(c.id)}
+                          onChange={() => toggleOne(c.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
                         <div className="flex items-center gap-2.5">
                           <span className="bg-clay grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-medium text-white">
                             {initials}
